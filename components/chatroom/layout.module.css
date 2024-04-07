@@ -1,0 +1,113 @@
+.mainSection{
+    height: 100%;
+    display: flex;
+}
+
+/* ------------------------------ */
+
+.leftSection{
+    height: 100%;
+    width: 30%;
+    background-color: #f4f3ee;
+}
+
+.leftHeader{
+    height: 60px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px 1px gainsboro;
+}
+
+
+
+.leftHeader .headerlogo{
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+}
+
+.leftHeader .headerlogo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.searchbar{
+    height: 60px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.searchinput{
+    width: 100%;
+    height: 30px;
+    border-radius: 5px;
+    outline: none;
+    padding: 15px 10px;
+    border: none;
+}
+
+
+.list li{
+    list-style-type:none;
+    height: 70px;
+    background-color: whitesmoke;
+    border-bottom: 1px solid gainsboro;
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+}
+
+.list li .userlogo{
+    width: 50px;
+    height: 50px;
+}
+
+.list li .userlogo img{
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.list li .nameSection{
+    display: flex;
+    justify-content: space-between;
+    width: 88%;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.list li .nameSection h6{
+    font-size: 1rem;
+}
+
+.list li .nameSection p{
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.list li .nameSection > div{
+    width: 50%;
+}
+
+/* ----------------------------------- */
+
+.rightSection{
+    height: 100%;
+    width: 70%;
+}
+.rightSection .leftHeader{
+    background-color: #f4f3ee;
+}
+
+.rightSection .headerlogo{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
