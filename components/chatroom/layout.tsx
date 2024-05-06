@@ -16,13 +16,15 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../utils/firebase";
 import { User } from "../../types/basic-types";
-import InviteAccept from "./inviteAccept";
 import InputSectionView from "./inputsectionView";
+import { Popover } from "antd";
+import ChatPopover from "./chatpopover";
+import { convertTime } from "../../helpers/convert-time";
 
 type ApprovalType = "isAccept" | "isBlocked";
 
 export default function Chatroom() {
-  const currentChatRef = useRef<any>(null)
+  const currentChatRef = useRef<any>(null);
   const [chat, setChat] = useState<any>(null);
   const [users, setUsers] = useState<any>([]);
   const [currentUser, setCurrentUser] = useState<any>([]);
@@ -34,6 +36,7 @@ export default function Chatroom() {
   const SINGLE = "single";
   const GROUP = "group";
 
+  //To List All Users...!
   async function getAllUsers() {
     try {
       let obj: any = {};
@@ -48,6 +51,7 @@ export default function Chatroom() {
     } catch (error) {}
   }
 
+  //To List all Chats of the User...!
   async function getAllChats() {
     try {
       let obj: any = {};
@@ -64,6 +68,7 @@ export default function Chatroom() {
     } catch (error) {}
   }
 
+  //To invite a new user to the chat..!
   async function handleInvite(user: User) {
     try {
       const inviteObj = {
@@ -76,70 +81,78 @@ export default function Chatroom() {
         sentby: currentUser?.id,
         sentTo: arrayUnion(inviteObj),
         members: arrayUnion(user.id, currentUser?.id),
-        isAccept: false,
-        isBlocked: false,
+        isBlockedbySender: false,
         messages: [],
       });
 
-      await updateDoc(doc(db, "users", user.id), {
-        chats: arrayUnion(docRef.id),
-      });
+      await Promise.all([
+        updateDoc(doc(db, "users", user.id), {
+          chats: arrayUnion(docRef.id),
+        }),
+        updateDoc(doc(db, "users", currentUser?.id), {
+          chats: arrayUnion(docRef.id),
+        }),
+        setUsers((prevState: any) => ({
+          ...prevState,
+          [currentUser?.id]: {
+            ...prevState[currentUser?.id],
+            chats: [...prevState[currentUser?.id].chats, docRef.id],
+          },
+          [user.id]: {
+            ...prevState[user.id],
+            chats: [...prevState[user.id].chats, docRef.id],
+          },
+        })),
 
-      await updateDoc(doc(db, "users", currentUser?.id), {
-        chats: arrayUnion(docRef.id),
-      });
-
-      setUsers((prevState: any) => ({
-        ...prevState,
-        [user.id]: {
-          ...prevState[user.id],
-          chats: [...prevState[user.id].chats, docRef.id],
-        },
-        [currentUser?.id]: {
-          ...prevState[currentUser?.id],
-          chats: [...prevState[currentUser?.id].chats, docRef.id],
-        },
-      }));
-
-      setCurrentUser((prevState: any) => ({
-        ...prevState,
-        chats: [...prevState.chats, docRef.id],
-      }));
+        setCurrentUser((prevState: any) => ({
+          ...prevState,
+          chats: [...prevState.chats, docRef.id],
+        })),
+      ]);
     } catch (error) {
       console.log("errorr------", error);
     }
   }
 
+  //to send a message to user..!
   async function handleSend(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     try {
+      if (chat?.id === currentChat && message?.length) {
+        const docRef = doc(db, "chats", chat.id);
 
-      if(chat?.id === currentChat){
+        const lastMessage = {
+          message,
+          timestamp: Timestamp.now(),
+        };
 
-      
-      const docRef = doc(db, "chats", chat.id);
+        let unread: any = {};
 
-      const lastMessage = {
-        message,
-        timestamp: Timestamp.now(),
-      };
+        chat?.members
+          ?.filter((user: string) => user !== currentUser?.id)
+          ?.map((el: string) => {
+            unread[el] = chat?.unread?.[el] ? chat?.unread?.[el] + 1 : 1;
+          });
 
-      const newMessage = {
-        sender: currentUser?.id,
-        message: message,
-        timestamp: Timestamp.now(),
-      };
+        const newMessage = {
+          sender: currentUser?.id,
+          id: Math.random(),
+          message: message,
+          timestamp: Timestamp.now(),
+        };
 
-      await updateDoc(docRef, {
-        lastMessage,
-        messages: arrayUnion(newMessage),
-      });
+        await updateDoc(docRef, {
+          lastMessage,
+          unread,
+          messages: arrayUnion(newMessage),
+        });
 
-      setMessage("");
+        setMessage("");
       }
     } catch (error) {}
   }
 
+  //to accept the invite of a user..!
   async function handleInviteApproval(type: ApprovalType) {
     try {
       const docRef = doc(db, "chats", chat.id);
@@ -157,6 +170,51 @@ export default function Chatroom() {
         ...prev,
         sentTo: newArray,
       }));
+    } catch (error) {}
+  }
+
+  //to change the read status of a chat..!
+  async function handleReadMessage(chat: any, chatId: string) {
+    setCurrentChat(chatId);
+    setChat({ ...chat, id: chatId });
+
+    const docRef = doc(db, "chats", chatId);
+    const docs = await getDoc(docRef);
+
+    let unread = { ...docs.data()?.unread };
+
+    if (unread[currentUser?.id]) {
+      unread[currentUser?.id] = 0;
+    }
+
+    await updateDoc(docRef, {
+      unread,
+    });
+  }
+
+  //to change the block status of a chat
+  async function handleBlockStatus(type: number, status: boolean) {
+    try {
+      const docRef = doc(db, "chats", chat?.id);
+
+      if (type === 1) {
+        await updateDoc(docRef, {
+          isBlockedbySender: status,
+        });
+      } else {
+        let newArr = chat?.sentTo?.map((el: any) => {
+          if (el?.user === currentUser?.id) {
+            const updatedEl = { ...el };
+            updatedEl.isBlocked = status;
+            return updatedEl;
+          }
+          return el;
+        });
+
+        await updateDoc(docRef, {
+          sentTo: newArr,
+        });
+      }
     } catch (error) {}
   }
 
@@ -187,13 +245,14 @@ export default function Chatroom() {
             [change.doc.id]: change.doc.data(),
           }));
         }
+
         if (change.type === "modified") {
           console.log("modifieddd");
 
-          setChats((prev: any) => ({
-            ...prev,
-            [change.doc.id]: change.doc.data(),
-          }));
+          setChats((prev: any) => {
+            const { [change.doc.id]: changeData, ...rest } = prev;
+            return { [change.doc.id]: change.doc.data(), ...rest };
+          });
 
           if (change.doc.id === currentChatRef.current) {
             setChat({ id: change.doc.id, ...change.doc.data() });
@@ -211,6 +270,7 @@ export default function Chatroom() {
   useEffect(() => {
     currentChatRef.current = currentChat;
   }, [currentChat]);
+
 
   return (
     <section className={styles.mainSection}>
@@ -256,11 +316,15 @@ export default function Chatroom() {
                         <div className={styles.nameSection}>
                           <div>
                             <h6>{users[user].username}</h6>
-                            <p>Daa</p>
+                            <p>
+                              {/* {users[user].chats.find((id: string) =>
+                                currentUser.chats.includes(id)
+                              )?.lastMessage?.message || ""} */}
+                            </p>
                           </div>
                           <div className={styles.timeandcount}>
-                            <p>9:30</p>
-                            <p className={styles.indicator}>1</p>
+                            <p></p>
+                            <p>Invite Sent</p>
                           </div>
                         </div>
                       </li>
@@ -292,8 +356,7 @@ export default function Chatroom() {
               {Object.keys(chats).map((key: any, idx: number) => (
                 <li
                   onClick={() => {
-                    setCurrentChat(key);
-                    setChat({ ...chats[key], id: key });
+                    handleReadMessage(chats[key], key);
                   }}
                   key={idx}
                 >
@@ -310,8 +373,15 @@ export default function Chatroom() {
                       <p>{chats[key]?.lastMessage?.message}</p>
                     </div>
                     <div className={styles.timeandcount}>
-                      <p>9:30</p>
-                      <p className={styles.indicator}>1</p>
+                      <p>{convertTime(chats[key]?.lastMessage?.timestamp)}</p>
+                      {key !== currentChat &&
+                      chats[key]?.unread?.[currentUser?.id] ? (
+                        <p className={styles.indicator}>
+                          {chats[key]?.unread?.[currentUser?.id]}
+                        </p>
+                      ) : (
+                        <></>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -339,9 +409,22 @@ export default function Chatroom() {
                   </h4>
                 </div>
               </div>
-              <div className={styles.headerlogo}>
-                {/* <img src="/images/add-new-user.jpg" alt="" /> */}
-              </div>
+              <Popover
+                content={
+                  <ChatPopover
+                    chat={chat}
+                    currentUser={currentUser}
+                    handleBlockStatus={handleBlockStatus}
+                  />
+                }
+                title="Options"
+                placement="leftTop"
+                trigger="click"
+              >
+                <div className={styles.threedot}>
+                  <img src="/images/dot.png" alt="" />
+                </div>
+              </Popover>
             </header>
 
             <div>
@@ -370,9 +453,7 @@ export default function Chatroom() {
               />
             </div>
           </>
-        ) : (
-          null
-        )}
+        ) : null}
       </div>
     </section>
   );

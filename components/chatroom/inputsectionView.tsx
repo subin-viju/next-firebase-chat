@@ -15,10 +15,12 @@ export default function InputSectionView({
       {
         chat?.sentTo?.some((el: any) => {
           const isCurrentUserSender = chat?.sentby === currentUser?.id;
-          const isCurrentUserRecipient = el?.user === currentUser?.id;
           const isBlocked = el?.isBlocked;
+          const isBlockedBySender = chat?.isBlockedbySender;
 
-          if (isBlocked) {
+          console.log(isBlockedBySender)
+
+          if (isBlocked || isBlockedBySender) {
             return false;
           }
 
